@@ -60,7 +60,8 @@ const Playlist = mongoose.model('Playlist', PlaylistSchema, 'playlists');
 const dns = require('dns');
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // Use built-in service to simplify config
+    pool: true, // Use pooled connections
+    service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
