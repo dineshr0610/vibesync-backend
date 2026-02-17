@@ -1,12 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 const { getRecommendations } = require('./services/recommender');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const morgan = require('morgan');
-const path = require('path');
 const fs = require('fs');
 const app = express();
 app.use(morgan('dev'));
