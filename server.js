@@ -120,15 +120,27 @@ cron.schedule('0 0 * * *', async () => {
 // --- ROUTES ---
 
 // Middleware: Admin Check
+const ADMIN_EMAILS = ['dinesh2370049@ssn.edu.in', 'bobby06102005@gmail.com'];
+
 const isAdmin = async (req, res, next) => {
     const userId = req.headers['x-user-id'];
     if (!userId) return res.status(401).json({ error: "Unauthorized: No User ID" });
 
     try {
         const user = await User.findById(userId);
-        if (!user || user.role !== 'admin') {
+        // Allow if role is admin OR email is in allowable list
+        const isEmailAdmin = user && (user.email && ADMIN_EMAILS.includes(user.email));
+
+        if (!user || (user.role !== 'admin' && !isEmailAdmin)) {
             return res.status(403).json({ error: "Access Denied: Admins Only" });
         }
+
+        // Auto-promote if strictly email match but role is user (optional, but good for consistency)
+        if (isEmailAdmin && user.role !== 'admin') {
+            user.role = 'admin';
+            await user.save();
+        }
+
         req.user = user; // Attach user to request
         next();
     } catch (e) {
