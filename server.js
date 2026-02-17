@@ -65,8 +65,16 @@ const transporter = nodemailer.createTransport({
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
+    // FORCE IPV4
+    connectionTimeout: 10000, // 10 seconds timeout
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+    dnsLookup: (hostname, options, callback) => {
+        const dns = require('dns');
+        dns.lookup(hostname, { family: 4 }, callback); // Force IPv4 (family: 4)
+    },
     tls: {
-        rejectUnauthorized: false // Helps avoid local/prod cert mismatches
+        rejectUnauthorized: false
     }
 });
 
