@@ -60,16 +60,19 @@ const Playlist = mongoose.model('Playlist', PlaylistSchema, 'playlists');
 const dns = require('dns');
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // Must be false for port 587
+    service: 'gmail', // Use built-in service to simplify config
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
     // FORCE IPV4 ONLY
     dnsLookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { family: 4 }, callback);
+        console.log(`[DNS] Resolving ${hostname} to IPv4...`);
+        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+            if (err) console.error('[DNS] Resolution Error:', err);
+            else console.log(`[DNS] Resolved ${hostname} to ${address} (IPv${family})`);
+            callback(err, address, family);
+        });
     },
     tls: {
         rejectUnauthorized: false
@@ -79,7 +82,7 @@ const transporter = nodemailer.createTransport({
 // Verify connection
 transporter.verify((error, success) => {
     if (error) {
-        console.log("Transporter Error Details:", error);
+        console.error("Transporter Error Details:", error);
     } else {
         console.log("🚀 VibeSync is ready to send emails via IPv4!");
     }
