@@ -10,24 +10,7 @@ const morgan = require('morgan');
 const fs = require('fs');
 const app = express();
 app.use(morgan('dev'));
-const allowedOrigins = [
-    'https://vibesync-ruddy.vercel.app',
-    'http://localhost:5500',
-    'http://127.0.0.1:5500',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-];
-
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true
-}));
+app.use(cors());
 app.use(express.json());
 
 // Connect to MongoDB
