@@ -4,8 +4,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const { getRecommendations } = require('./services/recommender');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const cron = require('node-cron');
-const nodemailer = require('nodemailer');
 const morgan = require('morgan');
 const fs = require('fs');
 const app = express();
@@ -57,37 +58,8 @@ const User = mongoose.model('User', UserSchema, 'users');
 const Playlist = mongoose.model('Playlist', PlaylistSchema, 'playlists');
 
 // --- EMAIL TRANSPORTER ---
-const dns = require('dns');
-
-const transporter = nodemailer.createTransport({
-    pool: true, // Use pooled connections
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    // FORCE IPV4 ONLY
-    dnsLookup: (hostname, options, callback) => {
-        console.log(`[DNS] Resolving ${hostname} to IPv4...`);
-        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-            if (err) console.error('[DNS] Resolution Error:', err);
-            else console.log(`[DNS] Resolved ${hostname} to ${address} (IPv${family})`);
-            callback(err, address, family);
-        });
-    },
-    tls: {
-        rejectUnauthorized: false
-    }
-});
-
-// Verify connection
-transporter.verify((error, success) => {
-    if (error) {
-        console.error("Transporter Error Details:", error);
-    } else {
-        console.log("🚀 VibeSync is ready to send emails via IPv4!");
-    }
-});
+// --- EMAIL TRANSPORTER REMOVED ---
+// Resend is now used directly via the `resend` instance initialized at the top.
 
 // --- CRON JOBS ---
 // Run every day at midnight (0 0 * * *)
@@ -103,12 +75,16 @@ cron.schedule('0 0 * * *', async () => {
         for (const user of usersToWarn) {
             if (user.email) {
                 console.log(`[EMAIL] Sending warning to ${user.email}`);
-                await transporter.sendMail({
-                    from: '"VibeSync Support" <dinesh2370049@ssn.edu.in>',
-                    to: user.email,
-                    subject: "Urgent: Your VibeSync account will be deleted in 5 days",
-                    html: `<p>Hi,</p><p>You haven't logged in for 10 days. Please log in within 5 days to keep your account active!</p>`
-                });
+                try {
+                    await resend.emails.send({
+                        from: "VibeSync <onboarding@resend.dev>",
+                        to: user.email,
+                        subject: "Urgent: Your VibeSync account will be deleted in 5 days",
+                        html: `<p>Hi,</p><p>You haven't logged in for 10 days. Please log in within 5 days to keep your account active!</p>`
+                    });
+                } catch (emailError) {
+                    console.error("Email send failed for user " + user.email, emailError);
+                }
             } else {
                 console.log(`[WARNING] User ${user._id} has no email, skipping notification.`);
             }
@@ -246,12 +222,17 @@ app.post('/auth/send-otp', async (req, res) => {
             let htmlContent = fs.readFileSync(templatePath, 'utf8');
             htmlContent = htmlContent.replace('{{greeting}}', greeting).replace('{{OTP_CODE}}', otp);
 
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: `Your VibeSync Login OTP: ${otp}`,
-                html: htmlContent
-            });
+            try {
+                await resend.emails.send({
+                    from: "VibeSync <onboarding@resend.dev>",
+                    to: email,
+                    subject: `Your VibeSync Login OTP: ${otp}`,
+                    html: htmlContent
+                });
+            } catch (emailError) {
+                console.error("Email send failed:", emailError);
+                return res.status(500).json({ error: "Email service error" });
+            }
         }
 
         // (Mock) Send SMS if phone is present
