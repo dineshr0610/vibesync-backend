@@ -14,6 +14,11 @@ app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json());
 
+// Global Error Handler for Unhandled Rejections
+process.on('unhandledRejection', (err) => {
+    console.error('Unhandled Rejection:', err);
+});
+
 // Connect to MongoDB
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -220,18 +225,20 @@ app.post('/auth/send-otp', async (req, res) => {
         if (email) {
             const templatePath = path.join(__dirname, 'templates', 'otp-email.html');
             let htmlContent = fs.readFileSync(templatePath, 'utf8');
-            htmlContent = htmlContent.replace('{{greeting}}', greeting).replace('{{OTP_CODE}}', otp);
+            htmlContent = htmlContent.replace('{{OTP_CODE}}', otp);
 
             try {
                 await resend.emails.send({
-                    from: "VibeSync <onboarding@resend.dev>",
+                    from: 'onboarding@resend.dev', // use this until domain verified
                     to: email,
                     subject: `Your VibeSync Login OTP: ${otp}`,
                     html: htmlContent
                 });
+
+                console.log(`[EMAIL] OTP sent successfully to ${email}`);
             } catch (emailError) {
-                console.error("Email send failed:", emailError);
-                return res.status(500).json({ error: "Email service error" });
+                console.error('[EMAIL ERROR]', emailError);
+                return res.status(500).json({ error: "Email service failed." });
             }
         }
 
