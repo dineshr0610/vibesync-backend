@@ -4,8 +4,13 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const { getRecommendations } = require('./services/recommender');
-const { Resend } = require('resend');
-const resend = new Resend(process.env.RESEND_API_KEY);
+const Brevo = require('@getbrevo/brevo');
+
+const apiInstance = new Brevo.TransactionalEmailsApi();
+apiInstance.setApiKey(
+    Brevo.TransactionalEmailsApiApiKeys.apiKey,
+    process.env.BREVO_API_KEY
+);
 const cron = require('node-cron');
 const morgan = require('morgan');
 const fs = require('fs');
@@ -81,14 +86,16 @@ cron.schedule('0 0 * * *', async () => {
             if (user.email) {
                 console.log(`[EMAIL] Sending warning to ${user.email}`);
                 try {
-                    await resend.emails.send({
-                        from: "VibeSync <onboarding@resend.dev>",
-                        to: user.email,
-                        subject: "Urgent: Your VibeSync account will be deleted in 5 days",
-                        html: `<p>Hi,</p><p>You haven't logged in for 10 days. Please log in within 5 days to keep your account active!</p>`
-                    });
+                    const sendSmtpEmail = new Brevo.SendSmtpEmail();
+                    sendSmtpEmail.subject = "Urgent: Your VibeSync account will be deleted in 5 days";
+                    sendSmtpEmail.htmlContent = `<p>Hi,</p><p>You haven't logged in for 10 days. Please log in within 5 days to keep your account active!</p>`;
+                    sendSmtpEmail.sender = { name: "VibeSync", email: "bobby06102005@gmail.com" };
+                    sendSmtpEmail.to = [{ email: user.email }];
+
+                    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+                    console.log("Brevo Response:", response);
                 } catch (emailError) {
-                    console.error("Email send failed for user " + user.email, emailError);
+                    console.error("Brevo Email Error:", emailError.response?.body || emailError);
                 }
             } else {
                 console.log(`[WARNING] User ${user._id} has no email, skipping notification.`);
@@ -227,18 +234,21 @@ app.post('/auth/send-otp', async (req, res) => {
             let htmlContent = fs.readFileSync(templatePath, 'utf8');
             htmlContent = htmlContent.replace('{{OTP_CODE}}', otp);
 
-            try {
-                await resend.emails.send({
-                    from: 'onboarding@resend.dev', // use this until domain verified
-                    to: email,
-                    subject: `Your VibeSync Login OTP: ${otp}`,
-                    html: htmlContent
-                });
+            const sendSmtpEmail = new Brevo.SendSmtpEmail();
+            sendSmtpEmail.subject = "Your VibeSync Login OTP";
+            sendSmtpEmail.htmlContent = htmlContent;
+            sendSmtpEmail.sender = {
+                name: "VibeSync",
+                email: "bobby06102005@gmail.com"
+            };
+            sendSmtpEmail.to = [{ email }];
 
-                console.log(`[EMAIL] OTP sent successfully to ${email}`);
+            try {
+                const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+                console.log("Brevo Response:", response);
             } catch (emailError) {
-                console.error('[EMAIL ERROR]', emailError);
-                return res.status(500).json({ error: "Email service failed." });
+                console.error("Brevo Email Error:", emailError.response?.body || emailError);
+                return res.status(500).json({ error: "Email delivery failed." });
             }
         }
 
