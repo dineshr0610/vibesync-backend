@@ -204,10 +204,16 @@ app.post('/auth/send-otp', async (req, res) => {
             ]
         });
 
-        // Determine Greeting
-        const greeting = user
-            ? "Welcome back! Keep your vibes synchronized."
-            : "Thank you for visiting VibeSync for the first time!";
+        const isReturningUser = !!user;
+        const greetingLine = isReturningUser
+            ? "Welcome back to VibeSync."
+            : "Welcome to VibeSync.";
+        const purposeLine = isReturningUser
+            ? "Use this one-time passcode to sign in and continue your music journey."
+            : "Thanks for joining VibeSync. Use this one-time passcode to verify your account and get started.";
+        const emailSubject = isReturningUser
+            ? "Your VibeSync sign-in OTP"
+            : "Welcome to VibeSync - verify your account";
 
         if (user) {
             // Update existing
@@ -233,9 +239,11 @@ app.post('/auth/send-otp', async (req, res) => {
             const templatePath = path.join(__dirname, 'templates', 'otp-email.html');
             let htmlContent = fs.readFileSync(templatePath, 'utf8');
             htmlContent = htmlContent.replace('{{OTP_CODE}}', otp);
+            htmlContent = htmlContent.replace('{{GREETING_LINE}}', greetingLine);
+            htmlContent = htmlContent.replace('{{PURPOSE_LINE}}', purposeLine);
 
             const sendSmtpEmail = new Brevo.SendSmtpEmail();
-            sendSmtpEmail.subject = "Your VibeSync Login OTP";
+            sendSmtpEmail.subject = emailSubject;
             sendSmtpEmail.htmlContent = htmlContent;
             sendSmtpEmail.sender = {
                 name: "VibeSync",
@@ -257,7 +265,11 @@ app.post('/auth/send-otp', async (req, res) => {
             console.log(`[SMS MOCK] Sending OTP ${otp} to ${phone}`);
         }
 
-        res.json({ message: "OTP sent successfully!" });
+        res.json({
+            message: isReturningUser
+                ? "OTP sent. Welcome back to VibeSync."
+                : "OTP sent. Welcome to VibeSync."
+        });
     } catch (err) {
         console.error("Auth Error:", err);
         res.status(500).json({ error: "Failed to process auth request." });
